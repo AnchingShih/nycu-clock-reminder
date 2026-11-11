@@ -1,0 +1,555 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>交大打卡提醒</title>
+<style>
+:root{--bg:#f6f5f2;--card:#fff;--text:#1f1e1c;--muted:#6b6a66;--line:#e3e1db;--accent:#2f6fd0;--accent-bg:#e8f0fc;--ok:#2e7d4f;--ok-bg:#e6f4ea;--warn:#9a6200;--warn-bg:#fdf1dc;--danger:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#1b1b1a;--card:#262624;--text:#ecebe6;--muted:#a3a29c;--line:#3a3936;--accent:#7fa8ec;--accent-bg:#22324a;--ok:#7cc79a;--ok-bg:#1f3527;--warn:#e7b464;--warn-bg:#3a2e17;--danger:#f08b84}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.6 -apple-system,"PingFang TC","Noto Sans TC",sans-serif}
+main{max-width:720px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:22px;font-weight:600;margin:0 0 16px}
+h2{font-size:16px;font-weight:600;margin:0 0 12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:16px}
+.status{display:flex;flex-wrap:wrap;gap:8px 24px;margin-bottom:12px}
+.status div span{display:block;font-size:12px;color:var(--muted)}
+.status div b{font-size:17px;font-weight:600}
+select.seg{font:inherit;font-weight:600;font-size:17px;padding:2px 6px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)}
+.banner{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:7px 14px;cursor:pointer}
+button:hover{border-color:var(--muted)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.days{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.day{border:1px solid var(--line);border-radius:8px;padding:8px 0;text-align:center;cursor:pointer;user-select:none}
+.day small{display:block;font-size:11px;color:var(--muted)}
+.day.on{background:var(--ok-bg);border-color:var(--ok);color:var(--ok)}
+.day.today{outline:2px solid var(--accent);outline-offset:1px}
+.row{display:grid;grid-template-columns:minmax(0,1fr) 150px;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.row:first-of-type{border-top:0}
+.row label b{font-weight:500;display:block}
+.row label small{color:var(--muted);font-size:12px}
+input[type=number],input[type=time]{font:inherit;width:100%;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)}
+.wd{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.wd label{border:1px solid var(--line);border-radius:6px;padding:2px 7px;cursor:pointer;font-size:13px}
+.wd input{display:none}
+.wd label:has(input:checked){background:var(--accent-bg);border-color:var(--accent);color:var(--accent)}
+.save{display:flex;align-items:center;gap:12px;margin-top:12px}
+#msg{font-size:13px;color:var(--muted)}
+#msg.err{color:var(--danger)}
+.hint{font-size:12px;color:var(--muted);margin:8px 0 0}
+.nextbar{background:var(--accent-bg);color:var(--accent);border-radius:12px;padding:12px 18px 14px;margin:0 0 16px}
+.nextbar .lbl{display:block;font-size:13px;color:var(--muted)}
+.nextbar .big{display:block;font-size:44px;font-weight:700;line-height:1.15;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+.nextbar .note{display:block;font-size:13px;color:var(--muted);margin-top:2px}
+.nextbar:empty{display:none}
+.nextbar{position:relative}
+.next-btns{position:absolute;top:14px;right:16px;display:flex;gap:8px}
+.next-btns button:not(.primary){background:var(--card);color:var(--text)}
+.nextbar .big[data-open]{cursor:pointer}
+.nextbar .big[data-open]:hover{text-decoration:underline;text-underline-offset:6px}
+.hdr-r{display:flex;align-items:center;gap:10px}
+.nextbar.idle{background:var(--card);border:1px solid var(--line);color:var(--text)}
+.nextbar.idle .big{font-size:26px;font-weight:600}
+.sched{border-top:1px solid var(--line);margin-top:14px;padding-top:12px}
+.srow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:4px 0}
+.srow input[type=number]{width:80px}
+.hm{display:inline-flex;align-items:center;gap:4px}
+.spin{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.spin input{width:40px;border:0;background:transparent;color:var(--text);font:inherit;text-align:center;padding:6px 0 6px 6px;outline:none}
+.spin:focus-within{border-color:var(--accent)}
+.arw{display:flex;flex-direction:column}
+.arw button{border:0;background:transparent;padding:0 6px;font-size:9px;line-height:13px;color:var(--muted);border-radius:0}
+.arw button:hover{color:var(--text)}
+.srow select{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text)}
+.srow span{min-width:0}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+header h1{margin:0}
+.nav{display:flex;gap:4px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+.nav a{padding:5px 14px;border-radius:7px;color:var(--muted);text-decoration:none}
+.nav a.on{background:var(--accent-bg);color:var(--accent);font-weight:600}
+#msg{min-height:20px;margin:-8px 0 12px}
+.sub{font-size:13px;font-weight:600;color:var(--muted);margin:18px 0 0;padding-top:12px;border-top:1px solid var(--line)}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(8px);background:var(--card);color:var(--text);border:1px solid var(--line);padding:10px 20px;border-radius:10px;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,.18);opacity:0;transition:opacity .2s,transform .2s;pointer-events:none;z-index:10}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.toast.err{color:var(--danger)}
+.switch{position:relative;display:inline-block;width:46px;height:26px;justify-self:end}
+.switch input{opacity:0;width:0;height:0}
+.switch span{position:absolute;inset:0;background:var(--line);border-radius:26px;cursor:pointer;transition:background .15s}
+.switch span::before{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:transform .15s}
+.switch input:checked+span{background:var(--accent)}
+.switch input:checked+span::before{transform:translateX(20px)}
+.switch input:disabled+span{opacity:.45;cursor:not-allowed}
+.row .end{justify-self:end}
+@media (max-width:480px){.row{grid-template-columns:1fr}.wd{justify-content:flex-start}}
+h3{font-size:15px;font-weight:600;margin:18px 0 6px}
+.gnote{background:var(--warn-bg);color:var(--warn);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.gwrap{overflow-x:auto}
+.gt{border-collapse:collapse;width:100%;font-size:14px}
+.gt th,.gt td{border-bottom:1px solid var(--line);padding:8px 10px 8px 0;text-align:left;vertical-align:top}
+.gt th{font-weight:500;color:var(--muted);white-space:nowrap}
+.gt td:first-child{min-width:96px}
+.gt small{color:var(--muted);font-size:12px}
+.gl,.gsteps ol{margin:4px 0;padding-left:20px}
+.gl li,.gsteps ol li{margin:4px 0}
+.gsm{margin:4px 0;font-size:14px;color:var(--muted)}
+.gno{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;font-size:12px;margin-right:8px}
+code{background:var(--bg);border-radius:5px;padding:1px 5px;font-size:13px;overflow-wrap:anywhere}
+.gfb{float:right;font-size:12px;padding:0 8px;margin-left:8px;line-height:20px;color:var(--accent)}
+.gfig{clear:both;margin:6px 0 2px;font-size:13px;color:var(--muted)}
+.gfig img{display:block;max-width:100%;max-height:440px;border:1px solid var(--line);border-radius:8px}
+.glang{display:flex;align-items:center;justify-content:flex-end;gap:8px;margin:6px 0;font-size:13px;color:var(--muted)}
+.gtopic{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:8px 0}
+.gtopic code{font-size:14px;padding:6px 10px}
+.gsteps ol.gsc{list-style:none;padding:0;font-size:13px}
+.gsteps ol.gsc li{background:var(--bg);border-radius:6px;padding:4px 10px;margin:3px 0}
+.gsteps ol.gsc li.i1{margin-left:16px}
+.gsteps ol.gsc li.i2{margin-left:32px}
+.gsteps ol.gsc code{background:transparent;padding:0}
+</style>
+</head>
+<body>
+<main>
+<header>
+  <h1>交大打卡提醒</h1>
+  <nav class="nav"><a href="#home" data-page="home">主頁</a><a href="#settings" data-page="settings">設定</a><a href="#guide" data-page="guide">安裝指南</a></nav>
+</header>
+<!-- 主頁最上方常駐：下一個動作與時間（依 state 即時算，重新整理也一樣） -->
+<div class="nextbar" id="s-next" aria-live="polite"></div>
+<p id="msg"></p>
+
+<div id="page-home">
+
+<section class="card">
+  <h2>今天</h2>
+  <div class="status">
+    <div><span>今天做到</span><b><select id="s-progress" class="seg"></select></b></div>
+    <div><span>目前狀態</span><b><select id="s-status" class="seg">
+      <option value="working">努力中</option><option value="today_done">今天已完成</option><option value="today_off">今天休息</option>
+      <option value="week_done">本週已完成</option><option value="month_done">本月已完成</option></select></b></div>
+  </div>
+  <p class="hint" id="s-sub" style="margin-top:0"></p>
+
+  <div class="sched">
+    <div class="srow"><input type="number" id="out-n" min="1" step="0.5" value="4"><select id="out-u"><option value="hour">小時</option><option value="min">分鐘</option></select><span>後提醒簽退</span><button data-sched="signout" data-mode="in">設定</button></div>
+    <div class="srow"><span class="hm"><span class="spin"><input type="text" inputmode="numeric" maxlength="2" id="out-h" data-max="23" placeholder="時"><span class="arw"><button type="button" data-step="1" tabindex="-1">▲</button><button type="button" data-step="-1" tabindex="-1">▼</button></span></span>:<span class="spin"><input type="text" inputmode="numeric" maxlength="2" id="out-m" data-max="59" placeholder="分"><span class="arw"><button type="button" data-step="1" tabindex="-1">▲</button><button type="button" data-step="-1" tabindex="-1">▼</button></span></span></span><span>提醒簽退</span><button data-sched="signout" data-mode="at">設定</button></div>
+    <div class="srow"><input type="number" id="in-n" min="1" step="0.5" value="1"><select id="in-u"><option value="hour">小時</option><option value="min">分鐘</option></select><span>後提醒簽到</span><button data-sched="signin" data-mode="in">設定</button></div>
+    <div class="srow"><span class="hm"><span class="spin"><input type="text" inputmode="numeric" maxlength="2" id="in-h" data-max="23" placeholder="時"><span class="arw"><button type="button" data-step="1" tabindex="-1">▲</button><button type="button" data-step="-1" tabindex="-1">▼</button></span></span>:<span class="spin"><input type="text" inputmode="numeric" maxlength="2" id="in-m" data-max="59" placeholder="分"><span class="arw"><button type="button" data-step="1" tabindex="-1">▲</button><button type="button" data-step="-1" tabindex="-1">▼</button></span></span></span><span>提醒簽到</span><button data-sched="signin" data-mode="at">設定</button></div>
+  </div>
+</section>
+
+<section class="card">
+  <h2>本週已完成 <span id="w-count" style="font-weight:400;color:var(--muted)"></span></h2>
+  <div class="days" id="days"></div>
+  <p class="hint">點日期可以切換「已完成」。做滿設定的天數後，本週就不再提醒。</p>
+</section>
+</div>
+
+<div id="page-settings" hidden>
+<section class="card">
+  <h2>手機通知</h2>
+  <div class="row"><label for="pn-on"><b>手機跳通知</b><small>關掉後只在 Mac 提醒；簽退倒數照常計時</small></label><label class="switch"><input type="checkbox" id="pn-on"><span></span></label></div>
+  <div class="row"><label for="pn-sync"><b>每天第一次簽到也跳手機</b><small>開：時間到手機和電腦都跳；手機沒回，電腦打開還是會跳。關：第一次只有電腦跳，手機不跳</small></label><label class="switch"><input type="checkbox" id="pn-sync"><span></span></label></div>
+  <div class="row"><label for="pn-pause"><b>簽退通知顯示「今天不用了」</b><small>按了就算這段已簽退，今天不再提醒下一段。常誤按的話可以關掉，改在電腦或主頁按。在手機按 ✅ 已簽到排的第 1 段簽退通知，因大小限制不會有這顆</small></label><label class="switch"><input type="checkbox" id="pn-pause"><span></span></label></div>
+  <div class="row"><label><b>測試手機</b><small>第一次設定、換手機或重裝 ntfy 時，確認收得到通知（開關關著也會送）</small></label><button class="end" data-act="test_push">送測試通知</button></div>
+  <div class="row"><label><b>測試電腦</b><small>Mac 右上角跳一則測試提醒。沒看到的話，檢查系統設定 → 通知 → 終端機（樣式選「提示」），或是否開著專注模式</small></label><button class="end" data-act="test_mac">送測試通知</button></div>
+</section>
+
+<section class="card">
+  <h2>提醒規則</h2>
+  <form id="cfg">
+    <div class="row"><label><b>第一次提醒簽到</b><small>沒開電腦的話，開機後 2 分鐘內補提醒</small></label><input type="time" name="first_prompt" required></div>
+    <div class="row"><label><b>每段幾小時</b><small>按「已簽到」後多久提醒簽退</small></label><input type="number" name="hours" min="0.5" max="12" step="0.5" required></div>
+    <div class="row"><label><b>每天幾段</b></label><input type="number" name="sessions_per_day" min="1" max="4" required></div>
+    <div class="row"><label><b>兩段之間休息（分鐘）</b><small>簽退後多久提醒下一段</small></label><input type="number" name="break_min" min="0" max="600" required></div>
+    <div class="row"><label><b>每週做滿幾天就停</b></label><input type="number" name="days_per_week" min="1" max="7" required></div>
+    <div class="row"><label><b>哪幾天要提醒</b></label><div class="wd" id="wd"></div></div>
+    <div class="row"><label><b>簽到「稍後提醒」（分鐘）</b><small>Mac 與手機上的延後按鈕</small></label><input type="number" name="snooze_in_min" min="5" max="600" required></div>
+    <div class="row"><label><b>簽退「稍後提醒」（分鐘）</b><small>Mac 上的延後按鈕</small></label><input type="number" name="snooze_out_min" min="5" max="600" required></div>
+    <div class="row"><label><b>沒回覆多久再提醒（分鐘）</b><small>簽到、簽退提醒沒回就再跳，最多 3 次；0 ＝不要再跳</small></label><input type="number" name="renotify_min" min="0" max="600" required></div>
+    <p class="sub">測試用</p>
+    <div class="row"><label><b>測試模式（分鐘）</b><small>0 = 關閉。開啟時，所有倒數與休息都縮成這個分鐘數</small></label><input type="number" name="test_minutes" min="0" max="30" required></div>
+    <div class="save"><button class="primary" type="submit" id="save-btn">儲存設定</button></div>
+  </form>
+  <p class="hint">儲存後，下一次提醒就會用新設定。已經在倒數的簽退提醒不受影響。</p>
+</section>
+
+<section class="card">
+  <h2>更新</h2>
+  <div class="row"><label><b>更新程式</b><small>目前版本 <span id="u-ver">—</span>。你的設定和排好的提醒都會保留</small></label><button class="end" type="button" id="u-btn">更新</button></div>
+  <p class="hint" id="u-msg" aria-live="polite"></p>
+</section>
+</div>
+
+<div id="page-guide" hidden>
+
+<section class="card" id="link-note">
+  <h2>手機跟電腦怎麼連動</h2>
+  <div class="gnote"><b>✅ 只是告訴提醒系統，不是真的打卡。</b>簽到、簽退還是要在打卡頁自己按。</div>
+  <p>手機和電腦都會提醒，<b>回覆其中一邊就好</b>。差別在電腦沒開時，有些事要等電腦打開才會處理：</p>
+  <div class="gwrap"><table class="gt">
+    <thead><tr><th>你在手機按</th><th>電腦開著</th><th>電腦沒開</th></tr></thead>
+    <tbody>
+    <tr><td><b>✅ 已簽到</b></td><td>排好簽退提醒，幾秒到 1 分鐘內兩邊都跳「已開始計時」</td><td>簽退提醒照樣會響；只是沒有「已開始計時」，電腦打開後才同步</td></tr>
+    <tr><td><b>✅ 已簽退</b><br><small>還有下一段</small></td><td>休息後手機和電腦都提醒下一段</td><td>休息後手機仍會提醒，按 ✅ 已簽到一樣會排簽退提醒。但那則簽退通知只有開頁按鈕，<b>已簽退要等電腦打開才能回報</b></td></tr>
+    <tr><td><b>✅ 已簽退</b><br><small>當天最後一段</small></td><td>馬上記錄今天完成</td><td>電腦打開後補記錄</td></tr>
+    <tr><td><b>60 分鐘後</b></td><td>60 分鐘後再提醒</td><td>要等電腦打開才會再提醒</td></tr>
+    <tr><td><b>今天不用了</b></td><td>這段算簽退，今天不再提醒下一段</td><td>電腦打開後才記錄；在那之前已排好的手機提醒還是會跳</td></tr>
+    </tbody>
+  </table></div>
+  <h3>另外要知道</h3>
+  <ul class="gl">
+    <li><b>手機按 ✅ 畫面不會有變化</b>，其實已經收到了，按一次就好。</li>
+    <li><b>點手機通知只會打開 ntfy。</b>要連 VPN、開打卡頁，請按「開VPN＋簽到頁／簽退頁」。</li>
+    <li><b>每天第一次的手機提醒是電腦先排好的</b>，最多排到未來 3 天。電腦超過 3 天沒開，手機就可能收不到。</li>
+    <li><b>在電腦回覆後</b>，手機上已經跳出的通知不會自己消失，不用理它。</li>
+    <li><b>太久沒回會再提醒</b>：預設每 30 分鐘再跳一次，最多 3 次，要電腦開著才會發生。不想要就到設定頁改成 0；當天不想被提醒就按「今天不做」。</li>
+    <li><b>電腦開著專注模式或勿擾時</b>，右上角的提醒不會跳出來，手機通知則看手機的設定。</li>
+    <li><b>簽退提醒一定兩邊都有</b>：不管在哪邊簽到，手機都會響，電腦開著也會跳。</li>
+    <li><b>設定頁的兩個開關：</b>關掉「手機跳通知」，所有提醒都只在電腦跳；關掉「每天第一次簽到也跳手機」，只有第一次不跳手機。</li>
+  </ul>
+</section>
+
+<section class="card">
+  <h2>安裝指南</h2>
+  <div class="gsteps">
+  <h3><span class="gno">1</span>安裝到電腦</h3>
+  <p class="gsm">看得到這一頁，代表這台電腦已經裝好，可以跳到第 2 步。換電腦或給別人裝才需要這一步。</p>
+  <ol>
+    <li data-fig="s1-1">解壓縮 <code>打卡提醒安裝包.zip</code>，點兩下「安裝.command」。</li>
+    <li data-fig="s1-2">跳出警告時先按「完成」關掉，到「系統設定 → 隱私權與安全性」往下捲到「安全性」，在這個檔案旁邊按「<b>強制打開</b>」。</li>
+    <li data-fig="s1-3">輸入 FortiClient 裡學校 VPN 的名稱；直接按 Enter 就是 nycu。</li>
+    <li data-fig="s1-4">記下最後顯示的推播頻道，第 3 步要用。</li>
+  </ol>
+
+  <h3><span class="gno">2</span>設定電腦權限</h3>
+  <ol>
+    <li data-fig="s2-1"><b>通知：</b>系統設定 → 通知 → 終端機，樣式選「<b>提示</b>」，通知才會停在畫面上等你按。</li>
+    <li data-fig="s2-2"><b>輔助使用：</b>系統設定 → 隱私權與安全性 → 輔助使用，打開 python3，才能在校外自動連 VPN。沒開也能用，只是要自己按連線。</li>
+  </ol>
+
+  <h3><span class="gno">3</span>手機安裝 ntfy</h3>
+  <ol>
+    <li data-fig="s3-1">App Store 搜尋 <b>ntfy</b>（開發者 Philipp Heckel），打開後按右上角「+」。</li>
+    <li data-fig="s3-2">Topic 填下面的頻道，按 Subscribe，並允許通知。</li>
+  </ol>
+  <div class="gtopic"><code id="g-topic">讀取中…</code><button type="button" id="g-copy">複製</button></div>
+  <p class="gsm">這個頻道是你專用的，不要給別人，也不要跟別人共用。</p>
+
+  <h3><span class="gno">4</span>手機安裝 FortiClient VPN</h3>
+  <p class="gsm">只有在校外要用手機簽到才需要。</p>
+  <div class="gwrap"><table class="gt">
+    <tbody>
+    <tr data-fig="s4-1"><td>類型</td><td>SSL-VPN</td></tr>
+    <tr data-fig="s4-2"><td>名稱</td><td>nycu</td></tr>
+    <tr data-fig="s4-3"><td>伺服器／連接埠</td><td><code>vpn.nycu.edu.tw</code>／443</td></tr>
+    <tr data-fig="s4-4"><td>帳號／密碼</td><td>學號／單一入口密碼</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3><span class="gno">5</span>手機建立捷徑</h3>
+  <p class="gsm" data-fig="s5-0">按「開VPN＋簽到頁」時會用到。打開「捷徑」App 新增一個，名稱一定要是 <code>NYCU-Clock</code>，再由上到下加入。沒連 VPN 才會連；連不上就打開 FortiClient 並停止；連上後打開 Authenticator 和簽到頁：</p>
+  <div class="glang"><span>中文</span><label class="switch" title="切換捷徑動作的語言"><input type="checkbox" id="g-lang" aria-label="捷徑動作顯示英文"><span></span></label><span>English</span></div>
+  <ol class="gsc" id="g-sc-zh">
+    <li data-fig="s5-geturl">取得 URL 內容 <code>https://api.ipify.org</code></li>
+    <li data-fig="s5-text">文字：URL 的內容</li>
+    <li data-fig="s5-if">如果 文字 不包含 <code>140.113</code></li>
+    <li class="i1" data-fig="s5-setvpn">設定 VPN：連接 FortiClient VPN</li>
+    <li class="i1" data-fig="s5-wait">等待 6 秒</li>
+    <li data-fig="s5-endif">否則／結束如果（加「如果」時自動出現，「否則」留空）</li>
+    <li data-fig="s5-geturl">取得 URL 內容 <code>https://api.ipify.org</code></li>
+    <li data-fig="s5-text">文字：URL 的內容</li>
+    <li data-fig="s5-if">如果 文字 不包含 <code>140.113</code></li>
+    <li class="i1" data-fig="s5-openapp">打開 App：FortiClient VPN</li>
+    <li class="i1" data-fig="s5-stop">停止此捷徑</li>
+    <li data-fig="s5-endif">否則／結束如果</li>
+    <li data-fig="s5-openauth">打開 App：Authenticator</li>
+    <li data-fig="s5-wait3">等待 3 秒</li>
+    <li data-fig="s5-openurl">打開 URL <code>https://portal.nycu.edu.tw/#/redirect/timeclocksign</code></li>
+  </ol>
+  <ol class="gsc" id="g-sc-en" hidden>
+    <li data-fig="s5-geturl">Get Contents of URL <code>https://api.ipify.org</code></li>
+    <li data-fig="s5-text">Text：Contents of URL</li>
+    <li data-fig="s5-if">If Text does not contain <code>140.113</code></li>
+    <li class="i1" data-fig="s5-setvpn">Set VPN：Connect to FortiClient VPN</li>
+    <li class="i1" data-fig="s5-wait">Wait 6 seconds</li>
+    <li data-fig="s5-endif">Otherwise／End If（added automatically with If; leave Otherwise empty）</li>
+    <li data-fig="s5-geturl">Get Contents of URL <code>https://api.ipify.org</code></li>
+    <li data-fig="s5-text">Text：Contents of URL</li>
+    <li data-fig="s5-if">If Text does not contain <code>140.113</code></li>
+    <li class="i1" data-fig="s5-openapp">Open App：FortiClient VPN</li>
+    <li class="i1" data-fig="s5-stop">Stop This Shortcut</li>
+    <li data-fig="s5-endif">Otherwise／End If</li>
+    <li data-fig="s5-openauth">Open App：Authenticator</li>
+    <li data-fig="s5-wait3">Wait 3 seconds</li>
+    <li data-fig="s5-openurl">Open URLs <code>https://portal.nycu.edu.tw/#/redirect/timeclocksign</code></li>
+  </ol>
+  <p class="gsm">照手機「捷徑」App 的語言選。實際顯示的名稱可能因 iOS 版本略有差異，找不到時可以切換語言對照。</p>
+
+  <h3><span class="gno">6</span>測試</h3>
+  <p class="gsm" data-fig="s6-1">到<a href="#settings">設定頁</a>，按「測試手機」和「測試電腦」的「送測試通知」，兩邊都收到就完成了。</p>
+  </div>
+</section>
+</div>
+</main>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script>
+const WD = ["一","二","三","四","五","六","日"];
+const STAGE = {wait_in:"等待提醒簽到", asking_in:"正在問你簽到", working:"上班中，等簽退提醒",
+               asking_out:"正在問你簽退", done:"今天已完成", skipped:"今天不提醒"};
+let data = null;
+const $ = s => document.querySelector(s);
+const hhmm = iso => iso ? iso.slice(11,16) : "";
+
+// 訊息：頁首一行＋畫面下方跳出提示（捲到哪裡都看得到）
+let toastTimer = null;
+function msg(t, err){
+  const m=$("#msg"); m.textContent=t; m.className=err?"err":"";
+  if(!t) return;
+  const el=$("#toast"); el.textContent=t; el.className="toast show"+(err?" err":"");
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>el.classList.remove("show"), err?4000:2500);
+}
+
+async function call(path, body){
+  const r = await fetch(path, {method: body===undefined?"GET":"POST",
+    headers:{"Content-Type":"application/json"}, body: body===undefined?undefined:JSON.stringify(body)});
+  const j = await r.json();
+  if(!r.ok) throw new Error(j.error || "發生錯誤");
+  data = j; render(); return j;
+}
+
+// 安裝指南每句話旁的「圖例」：按了才展開、才下載圖片；同一張圖可以給不同句子共用
+document.querySelectorAll("[data-fig]").forEach(el=>{
+  const host = el.tagName==="TR" ? el.lastElementChild : el;
+  const b = document.createElement("button");
+  b.type="button"; b.className="gfb"; b.textContent="圖例"; b.setAttribute("aria-expanded","false");
+  const f = document.createElement("div"); f.className="gfig"; f.hidden=true;
+  b.addEventListener("click", ()=>{
+    f.hidden=!f.hidden; b.setAttribute("aria-expanded",String(!f.hidden)); b.textContent=f.hidden?"圖例":"收起";
+    if(!f.firstChild){
+      const i=new Image(); i.alt="圖例"; i.loading="lazy";
+      i.onerror=()=>{ f.textContent="這張圖例還沒放。"; };
+      i.src="/fig/"+el.dataset.fig+".jpg"; f.appendChild(i);
+    }
+  });
+  host.prepend(b); host.appendChild(f);
+});
+
+function setGuideLang(en){
+  $("#g-lang").checked=en; $("#g-sc-en").hidden=!en; $("#g-sc-zh").hidden=en;
+  try{ localStorage.setItem("guideLang", en?"en":"zh"); }catch(e){}
+}
+$("#g-lang").addEventListener("change", e=>setGuideLang(e.target.checked));
+try{ if(localStorage.getItem("guideLang")==="en") setGuideLang(true); }catch(e){}
+
+$("#u-btn").addEventListener("click", async ()=>{
+  const b=$("#u-btn"), m=$("#u-msg");
+  b.disabled=true; b.textContent="更新中…"; m.style.color=""; m.textContent="正在檢查新版…";
+  const done=(t,err)=>{ m.textContent=t; m.style.color=err?"var(--danger)":""; b.disabled=false; b.textContent="更新"; };
+  try{
+    const r=await fetch("/api/update",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    const j=await r.json();
+    if(!r.ok) return done(j.error||"更新失敗",true);
+    if(j.status==="unconfigured") return done("更新來源還沒設定，現在還不能更新。");
+    if(j.status==="latest") return done("已經是最新版（"+j.current+"）。");
+    m.textContent="已更新到 "+j.current+"，正在重新載入…";
+    await new Promise(ok=>setTimeout(ok,3000));
+    for(let i=0;i<15;i++){
+      try{ const x=await fetch("/api"); if(x.ok) return location.reload(); }catch(e){}
+      await new Promise(ok=>setTimeout(ok,1000));
+    }
+    done("已換上新版，但設定頁沒有重新啟動。請重新打開 App；還是打不開就重新執行安裝。",true);
+  }catch(e){ done("更新時連不上設定頁，請重新打開 App 再試一次。",true); }
+});
+
+function render(){
+  const {config:c, state:s, week, today} = data;
+  $("#u-ver").textContent = data.version || "—";
+  // 今天做到第幾段：等簽到時是上一段，簽到後是這一段，今天完成就是最後一段
+  const N = c.sessions_per_day, sess = s.session || 1;
+  const prog = s.stage==="done" ? N : (s.stage==="working" || s.stage==="asking_out") ? sess : Math.max(0, sess-1);
+  const pg = $("#s-progress");
+  if(document.activeElement !== pg)
+    pg.innerHTML = Array.from({length:N+1},(_,k)=>`<option value="${k}" ${k===Math.min(prog,N)?"selected":""}>第 ${k} 段 / 共 ${N} 段</option>`).join("");
+  const paused = s.paused_until && today < s.paused_until;
+  const status = paused ? (s.paused_kind==="week" ? "week_done" : "month_done")
+               : s.stage==="done" ? "today_done" : s.stage==="skipped" ? "today_off" : "working";
+  if(document.activeElement !== $("#s-status")) $("#s-status").value = status;
+  const md = d => d.slice(5).replace("-","/");
+  // 頁首「下一步」（只顯示，不能改；同一時間只會有簽到或簽退其中一個）
+  const nx = nextAction(c, s, week, today, paused);
+  $("#s-next").className = "nextbar" + (nx.idle ? " idle" : "");
+  $("#s-next").innerHTML = `<span class="lbl">${nx.idle ? "目前狀態" : "下一步"}</span><span class="big">${nx.big}</span>${nx.note ? `<span class="note">${nx.note}</span>` : ""}`
+    + `<span class="next-btns"><button class="primary" data-open>打開打卡頁</button>`
+    + (nx.idle || /^現在/.test(nx.big) ? "" : `<button id="cancel-next">取消</button>`) + `</span>`;
+  $("#s-next .big").setAttribute("data-open", ""); $("#s-next .big").title = "點一下打開打卡頁";
+  $("#s-sub").textContent = paused ? `${md(s.paused_until)} 起恢復提醒`
+    : status==="today_done" ? "今天的段數都做完了" : status==="today_off" ? "今天不再提醒，不算進本週天數"
+    : s.stage==="wait_in" ? (prog===0 ? `還沒開始，${hhmm(s.next_prompt)} 提醒簽到` : `第 ${prog} 段做完，${hhmm(s.next_prompt)} 提醒第 ${sess} 段簽到`)
+    : s.stage==="asking_in" ? `正在問你第 ${sess} 段簽到` : s.stage==="working" ? `第 ${sess} 段上班中，坐等簽退` : s.stage==="asking_out" ? `正在問你第 ${sess} 段簽退` : "";
+  const done = new Set(s.days_done||[]);
+  $("#days").innerHTML = week.map((d,i)=>`<div class="day ${done.has(d)?"on":""} ${d===today?"today":""}" data-day="${d}">${WD[i]}<small>${d.slice(5).replace("-","/")}</small></div>`).join("");
+  $("#w-count").textContent = `${[...done].filter(d=>week.includes(d)).length} / ${c.days_per_week} 天`;
+  $("#pn-on").checked = c.phone_notify !== false;
+  $("#pn-sync").checked = c.phone_sync !== false; $("#pn-sync").disabled = c.phone_notify === false;
+  $("#pn-pause").checked = !!c.phone_pause_button; $("#pn-pause").disabled = c.phone_notify === false;
+  const f = $("#cfg");
+  if(!f.dataset.dirty){
+    for(const k of ["first_prompt","hours","sessions_per_day","break_min","days_per_week","snooze_in_min","snooze_out_min","renotify_min","test_minutes"]) f[k].value = c[k];
+    $("#wd").innerHTML = WD.map((w,i)=>`<label><input type="checkbox" value="${i}" ${c.workdays.includes(i)?"checked":""}>${w}</label>`).join("");
+  }
+}
+
+// 下一個動作與時間，照提醒實際會不會響來算：
+//  簽退提醒排在 ntfy 上（signout_at），本週／本月已完成也照常會響；
+//  簽到提醒由每 2 分鐘的 tick 發出，暫停中、非工作日、本週天數已滿時不會響。
+function nextAction(c, s, week, today, paused){
+  const nowISO = new Date(Date.now()-new Date().getTimezoneOffset()*60000).toISOString().slice(0,19);
+  const at = iso => (iso.slice(0,10) > today ? "明天 " : "") + hhmm(iso);
+  const md = d => `${+d.slice(5,7)}/${+d.slice(8,10)}`;
+  const sess = s.session || 1;
+  const pausedName = s.paused_kind==="week" ? "本週已完成" : "本月已完成";
+  if(s.stage==="asking_out") return {big:"現在 簽退", note:`正在提醒第 ${sess} 段簽退`};
+  if(s.stage==="working"){
+    if(!s.signout_at) return {big:"等簽退提醒", note:`第 ${sess} 段上班中，還沒有排好的簽退時間`};
+    const note = s.signout_at <= nowISO ? "時間已到，該簽退了"
+               : paused ? `${pausedName}，這個簽退提醒仍會響` : `第 ${sess} 段簽退`;
+    return {big:`${at(s.signout_at)} 簽退`, note};
+  }
+  if(paused) return {idle:true, big:pausedName, note:`今天不會再有提醒，${md(s.paused_until)} 起恢復`};
+  if(s.stage==="done") return {idle:true, big:"今天已完成", note:"今天不會再有提醒"};
+  if(s.stage==="skipped") return {idle:true, big:"今天休息", note:"今天不會再有提醒"};
+  if(s.stage==="asking_in") return {big:"現在 簽到", note:`正在提醒第 ${sess} 段簽到`};
+  if(s.stage==="idle") return {idle:true, big:"努力中", note:"沒有排定的提醒，要提醒時在下面設定"};
+  // wait_in：等 tick 提醒簽到
+  const wd = (new Date(today+"T00:00").getDay()+6)%7;
+  const other = (s.days_done||[]).filter(d=>d!==today && week.includes(d)).length;
+  const np = s.next_prompt || "";
+  const forced = s.force_today === today;
+  if((!forced && (!c.workdays.includes(wd) || other >= c.days_per_week)) || np.slice(0,10) > today)
+    return {idle:true, big:"今天不會再提醒", note: !c.workdays.includes(wd) ? "今天不是提醒日" : other >= c.days_per_week ? "本週天數已滿" : ""};
+  if(np <= nowISO) return {big:"現在 簽到", note:"2 分鐘內會跳出第 " + sess + " 段簽到提醒"};
+  return {big:`${hhmm(np)} 簽到`, note:`第 ${sess} 段簽到`};
+}
+
+document.addEventListener("click", async e=>{
+  const b = e.target.closest("[data-act]");
+  if(b){
+    if(b.dataset.act==="pause" && !confirm("本月已完成：剩下的日子都不再提醒，下個月第一個工作日恢復。確定嗎？")) return;
+    try{ await call(`/api/action/${b.dataset.act}`, {session: b.dataset.session}); msg(b.dataset.act==="test_push"?"已送出測試通知到手機":b.dataset.act==="test_mac"?"已送出，看 Mac 右上角":"已更新"); }
+    catch(err){ msg(err.message, true); }
+    return;
+  }
+  if(e.target.closest("[data-open]")){
+    try{ await call("/api/action/open_page", {}); msg("正在打開打卡頁（在校外會先自動連 VPN，約 20 秒）"); } catch(err){ msg(err.message, true); }
+    return;
+  }
+  if(e.target.id==="cancel-next"){
+    if(!confirm("取消這個提醒？取消後不會再提醒，直到你重新設定。")) return;
+    try{ await call("/api/action/cancel_next", {}); msg("已取消提醒"); } catch(err){ msg(err.message, true); }
+    return;
+  }
+  const sb = e.target.closest("[data-sched]");
+  if(sb){
+    const k = sb.dataset.sched==="signout" ? "out" : "in", body = {};
+    if(sb.dataset.mode==="at"){
+      const h = $(`#${k}-h`).value, m = $(`#${k}-m`).value || "0";
+      if(h==="" || +h<0 || +h>23 || +m<0 || +m>59){ msg("請填幾點（0–23）幾分（0–59）", true); return; }
+      body.time = `${String(+h).padStart(2,"0")}:${String(+m).padStart(2,"0")}`;
+    }
+    else { body.amount = +$(`#${k}-n`).value; body.unit = $(`#${k}-u`).value; if(!(body.amount>0)){ msg("請填大於 0 的數字", true); return; } }
+    try{ await call(`/api/action/${sb.dataset.sched}_at`, body); msg(sb.dataset.sched==="signout" ? "已排好簽退提醒（手機會收到「已開始計時」）" : "已排好簽到提醒"); }
+    catch(err){ msg(err.message, true); }
+    return;
+  }
+  const d = e.target.closest("[data-day]");
+  if(d){
+    const set = new Set(data.state.days_done||[]);
+    set.has(d.dataset.day) ? set.delete(d.dataset.day) : set.add(d.dataset.day);
+    try{ await call("/api/action/days", {days:[...set]}); } catch(err){ msg(err.message, true); }
+  }
+});
+
+const STATUS_NAME = {working:"努力中", today_done:"今天已完成", today_off:"今天休息", week_done:"本週已完成", month_done:"本月已完成"};
+$("#s-status").addEventListener("change", async e=>{
+  const v = e.target.value;
+  const warn = {week_done:"本週已完成：這週剩下的日子都不再提醒，下週第一個工作日恢復。確定嗎？",
+                month_done:"本月已完成：這個月剩下的日子都不再提醒，下個月第一個工作日恢復。確定嗎？"}[v];
+  const back = ()=>{ e.target.blur(); render(); };          // 選單還有焦點時 render 不會改它，先移開焦點
+  if(warn && !confirm(warn)){ back(); msg("已取消，狀態沒有改變"); return; }
+  try{ await call("/api/action/status", {status:v}); msg(`已改成「${STATUS_NAME[v]}」`); }
+  catch(err){ msg(err.message, true); back(); }
+});
+$("#s-progress").addEventListener("change", async e=>{
+  const k = +e.target.value;
+  try{ await call("/api/action/progress", {progress:k}); msg(`已改成做到第 ${k} 段`); }
+  catch(err){ msg(err.message, true); render(); }
+});
+// 手機通知的開關：一切換就儲存（只改這一項，其他設定沿用目前已儲存的值）
+for(const [id, key] of [["#pn-on","phone_notify"], ["#pn-sync","phone_sync"], ["#pn-pause","phone_pause_button"]]){
+  $(id).addEventListener("change", async e=>{
+    const on = e.target.checked;
+    try{ await call("/api/config", {...data.config, [key]: on});
+      msg(key==="phone_notify" ? (on ? "已開啟手機通知" : "已關閉手機通知，只在 Mac 提醒")
+        : key==="phone_sync" ? (on ? "每天第一次簽到：手機和電腦都跳" : "每天第一次簽到：只有電腦跳") : "已儲存"); }
+    catch(err){ e.target.checked = !on; msg("儲存失敗："+err.message, true); }
+  });
+}
+function wrapStep(inp, step){
+  const max = +inp.dataset.max, v = inp.value==="" ? (step>0 ? -1 : 0) : +inp.value;
+  inp.value = String(((v + step) % (max+1) + (max+1)) % (max+1)).padStart(2,"0");
+}
+document.querySelectorAll(".spin input").forEach(inp=>{
+  inp.addEventListener("keydown", e=>{
+    if(e.key==="ArrowUp"||e.key==="ArrowDown"){ e.preventDefault(); wrapStep(inp, e.key==="ArrowUp"?1:-1); }
+  });
+  inp.addEventListener("input", ()=>{ inp.value = inp.value.replace(/\D/g,"").slice(0,2); });
+  inp.addEventListener("blur", ()=>{
+    if(inp.value==="") return;
+    inp.value = String(Math.min(+inp.value, +inp.dataset.max)).padStart(2,"0");
+  });
+});
+document.querySelectorAll(".arw button").forEach(b=>b.addEventListener("click", ()=>{
+  const inp = b.closest(".spin").querySelector("input"); wrapStep(inp, +b.dataset.step); inp.focus();
+}));
+$("#cfg").addEventListener("input", ()=>{ $("#cfg").dataset.dirty="1"; });
+$("#cfg").addEventListener("submit", async e=>{
+  e.preventDefault();
+  const f = e.target;
+  const workdays = [...f.querySelectorAll("#wd input:checked")].map(x=>+x.value);
+  if(!workdays.length){ msg("至少要選一天", true); return; }
+  const body = {first_prompt:f.first_prompt.value, hours:+f.hours.value, sessions_per_day:+f.sessions_per_day.value,
+    break_min:+f.break_min.value, days_per_week:+f.days_per_week.value, snooze_in_min:+f.snooze_in_min.value,
+    snooze_out_min:+f.snooze_out_min.value, renotify_min:+f.renotify_min.value, test_minutes:+f.test_minutes.value,
+    phone_pause_button:data.config.phone_pause_button, phone_notify:data.config.phone_notify !== false, phone_sync:data.config.phone_sync !== false, workdays};
+  const btn=$("#save-btn"); btn.disabled=true;
+  try{
+    delete f.dataset.dirty; await call("/api/config", body);
+    msg("已儲存");
+  }
+  catch(err){ f.dataset.dirty="1"; msg("儲存失敗："+err.message, true); }
+  finally{ btn.disabled=false; }
+});
+
+// 主頁／設定切換：網址後面的 #settings 決定顯示哪一頁，可直接加入書籤
+function showPage(){
+  const pg = {"#settings":"settings", "#guide":"guide"}[location.hash] || "home";
+  $("#page-home").hidden = pg !== "home"; $("#page-settings").hidden = pg !== "settings"; $("#page-guide").hidden = pg !== "guide"; $("#s-next").hidden = pg !== "home";
+  window.scrollTo(0, 0);
+  document.querySelectorAll(".nav a").forEach(a => a.classList.toggle("on", a.dataset.page === pg));
+  if(!$("#cfg").dataset.dirty) msg("");
+}
+window.addEventListener("hashchange", showPage); showPage();
+
+call("/api").then(()=>{ $("#g-topic").textContent = data.topic || ""; }).catch(err=>msg(err.message, true));
+$("#g-copy").addEventListener("click", async ()=>{
+  try{ await navigator.clipboard.writeText($("#g-topic").textContent); msg("已複製頻道"); }
+  catch(err){ msg("複製失敗，請手動選取", true); }
+});
+setInterval(()=>{ if(!$("#cfg").dataset.dirty) call("/api").catch(()=>{}); }, 15000);
+</script>
+</body>
+</html>
